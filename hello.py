@@ -228,18 +228,10 @@ class Solver:
         return iter_count
 
 def main():
-    nodes = [
-        Node([0, 0], 1.0, is_fixed=True),
-        Node([1, 0], 1.0),
-        Node([2, 0], 1.0),
-        Node([3, 0], 1.0),
-    ]
-    
-    constraints = [
-        Constraint(nodes[0], nodes[1], stiffness=1000.0),
-        Constraint(nodes[1], nodes[2], stiffness=1000.0),
-        Constraint(nodes[2], nodes[3], stiffness=1000.0),
-    ]
+    nodes = [Node([i, 0], 1.0) for i in range(20)]
+    nodes[0].is_fixed = True
+
+    constraints = [Constraint(nodes[i], nodes[i+1], 1000) for i in range(len(nodes)-1)]
     
     chain = Chain()
     chain.setNodes(nodes)
@@ -250,7 +242,7 @@ def main():
     solver.initialize(chain)
     
     dt = solver.dt
-    sim_time = 100.0
+    sim_time = 10.0
     steps = int(sim_time / dt)
     
     position_history = []
@@ -272,7 +264,6 @@ def main():
 
         if step % 10 == 0:
             print(f"Time: {step * dt:.2f}s, Iterations: {iterations}")
-            print([node.position for node in nodes])
     
     print("Simulation complete")
     
@@ -288,7 +279,7 @@ def visualize_simulation(position_history, dim, num_nodes, dt):
     ax.set_xlabel("X position")
     ax.set_ylabel("Y position")
     
-    line, = ax.plot([], [], 'o-', lw=2)
+    line, = ax.plot([], [], 'o-', lw=2, markersize=2)
     time_text = ax.text(0.02, 0.95, '', transform=ax.transAxes)
     
     def init():
@@ -304,7 +295,42 @@ def visualize_simulation(position_history, dim, num_nodes, dt):
         line.set_data(x_pos, y_pos)
         time_text.set_text(f'Time: {i*dt:.2f}s')
         return line, time_text
-    
+
+    # マウスホイールイベントハンドラを定義
+    def on_scroll(event):
+        x_min, x_max = ax.get_xlim()
+        y_min, y_max = ax.get_ylim()
+        scale_factor = 0.9 if event.button == 'up' else 1.1  # 拡大: 0.9, 縮小: 1.1
+
+        x_center = (x_min + x_max) / 2
+        y_center = (y_min + y_max) / 2
+        x_range = (x_max - x_min) * scale_factor
+        y_range = (y_max - y_min) * scale_factor
+
+        ax.set_xlim(x_center - x_range / 2, x_center + x_range / 2)
+        ax.set_ylim(y_center - y_range / 2, y_center + y_range / 2)
+        fig.canvas.draw()  # 描画を更新
+
+    # キーボードイベントハンドラを定義
+    def on_key(event):
+        x_min, x_max = ax.get_xlim()
+        y_min, y_max = ax.get_ylim()
+        step = 0.5  # 移動量
+
+        if event.key == 'up':
+            ax.set_ylim(y_min + step, y_max + step)
+        elif event.key == 'down':
+            ax.set_ylim(y_min - step, y_max - step)
+        elif event.key == 'left':
+            ax.set_xlim(x_min - step, x_max - step)
+        elif event.key == 'right':
+            ax.set_xlim(x_min + step, x_max + step)
+        fig.canvas.draw()  # 描画を更新
+
+    # イベントを登録
+    fig.canvas.mpl_connect('scroll_event', on_scroll)  # マウスホイール
+    fig.canvas.mpl_connect('key_press_event', on_key)  # キーボード
+
     frames = range(0, len(position_history), 10)
     
     anim = FuncAnimation(fig, animate, frames=frames,
